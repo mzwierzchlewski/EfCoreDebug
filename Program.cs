@@ -48,6 +48,7 @@ public class Worker : BackgroundService
         
         ApplyMigration(dbContext);
         GenerateMigration(dbContext);
+        GenerateMigrationWithCustomDesignTimeServices<CustomDesignTimeServices>(dbContext);
         
         return _host.StopAsync(stoppingToken);
     }
@@ -68,6 +69,24 @@ public class Worker : BackgroundService
         var scaffolder = designTimeServiceProvider.GetRequiredService<IMigrationsScaffolder>();
         var migration = scaffolder.ScaffoldMigration("Migration", "Migration.Debug");
     
+        _logger.LogInformation("{DbContextModelSnapshot}", migration.SnapshotCode);
+    }
+    
+    private void GenerateMigrationWithCustomDesignTimeServices<TDesignTimeServices>(DbContext dbContext) where TDesignTimeServices : IDesignTimeServices, new()
+    {
+        var dbSpecificDesignTimeServices = new SqlServerDesignTimeServices();
+        var customDesignTimeServices = new TDesignTimeServices();
+        var designTimeServiceCollection = new ServiceCollection();
+        
+        customDesignTimeServices.ConfigureDesignTimeServices(designTimeServiceCollection);
+        designTimeServiceCollection.AddEntityFrameworkDesignTimeServices()
+                                   .AddDbContextDesignTimeServices(dbContext);
+        dbSpecificDesignTimeServices.ConfigureDesignTimeServices(designTimeServiceCollection);
+        var designTimeServiceProvider = designTimeServiceCollection.BuildServiceProvider();
+        
+        var scaffolder = designTimeServiceProvider.GetRequiredService<IMigrationsScaffolder>();
+        var migration = scaffolder.ScaffoldMigration("Migration", "Migration.Debug");
+        
         _logger.LogInformation("{DbContextModelSnapshot}", migration.SnapshotCode);
     }
 }
