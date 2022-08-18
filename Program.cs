@@ -43,6 +43,13 @@ public class Worker : BackgroundService
         using var scope = _serviceScopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
+        ApplyMigration(dbContext);
+        
         return _host.StopAsync(stoppingToken);
+    }
+    
+    private void ApplyMigration(DbContext dbContext)
+    {
+        dbContext.Database.Migrate();
     }
 }
