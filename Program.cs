@@ -1,5 +1,8 @@
 ﻿using EFCoreDebug;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Migrations.Design;
+using Microsoft.EntityFrameworkCore.SqlServer.Design.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -44,6 +47,7 @@ public class Worker : BackgroundService
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
         ApplyMigration(dbContext);
+        GenerateMigration(dbContext);
         
         return _host.StopAsync(stoppingToken);
     }
@@ -51,5 +55,19 @@ public class Worker : BackgroundService
     private void ApplyMigration(DbContext dbContext)
     {
         dbContext.Database.Migrate();
+    }
+    
+    private void GenerateMigration(DbContext dbContext)
+    {
+        var dbSpecificDesignTimeServices = new SqlServerDesignTimeServices();
+        var designTimeServiceCollection = new ServiceCollection().AddEntityFrameworkDesignTimeServices()
+                                                                 .AddDbContextDesignTimeServices(dbContext);
+        dbSpecificDesignTimeServices.ConfigureDesignTimeServices(designTimeServiceCollection);
+        var designTimeServiceProvider = designTimeServiceCollection.BuildServiceProvider();
+    
+        var scaffolder = designTimeServiceProvider.GetRequiredService<IMigrationsScaffolder>();
+        var migration = scaffolder.ScaffoldMigration("Migration", "Migration.Debug");
+    
+        _logger.LogInformation("{DbContextModelSnapshot}", migration.SnapshotCode);
     }
 }
